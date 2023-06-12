@@ -1,0 +1,244 @@
+import pandas as pd
+import tkinter as tk
+from tkinter import ttk
+import datetime
+from datetime import timedelta
+import re
+import numpy as np
+
+df1 = pd.read_csv("test1.csv", encoding="big5")
+print(df1.head(5))
+print(df1.info())
+
+window = tk.Tk()
+window.title("診所地圖")
+window.geometry("1280x720")
+
+#part1
+def time_analysis(time_series, determin):
+    tmp = []
+    for j in time_series.tolist():
+        boo = False
+        time_str = str(j)
+        for i in range(len(time_str) // 4):
+            time_digits = re.sub("[^0-9]", "", time_str[4 * i:4 * i + 4])
+            if len(time_digits) == 4:
+                try:
+                    diff = datetime.datetime.strptime(time_digits, "%H%M") - datetime.datetime.strptime('0600', "%H%M")
+                    if 0 < diff.seconds < 21600:
+                        if determin == '早診':
+                            boo = True
+                    elif 21600 <= diff.seconds < 43200:
+                        if determin == '午診':
+                            boo = True
+                    else:
+                        if determin == '晚診':
+                            boo = True
+                except ValueError:
+                    pass
+        tmp.append(boo)
+    return pd.Series(tmp)
+
+v1_set = set(df1["類別"])
+v1_list = sorted(list(v1_set))
+label_category = tk.Label(window, text="診所類別：")
+label_category.place(x=100, y=25)
+# var1 : str
+var1 = tk.StringVar()
+combo_category = ttk.Combobox(window, values=v1_list, textvariable=var1)
+combo_category.place(x=100, y=50)
+
+label_day = tk.Label(window, text="營業時間")
+label_day.place(x=300, y=25)
+# var2 : str
+var2 = tk.StringVar()
+days = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
+combo_day = ttk.Combobox(window, values=days, textvariable=var2)
+combo_day.place(x=300, y=50)
+
+label_time = tk.Label(window, text="看診時段：")
+label_time.place(x=500, y=25)
+# var3 : str
+var3 = tk.StringVar()
+# times = ["早診", "午診", "晚診", "休診"]
+times = ["早診", "午診", "晚診"]
+combo_time = ttk.Combobox(window, values=times, textvariable=var3)
+combo_time.place(x=500, y=50)
+
+#part2
+minutes_column = df1['騎車']
+for value in minutes_column:
+    # 將數字轉換為總秒數
+    total_seconds = value * 60
+
+    # 定義自定義函式來將總秒數格式化為 "HH:MM:SS" 字串
+    def format_duration(total_seconds):
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    # 使用自定義函式將總秒數格式化為 "HH:MM:SS" 字串
+    formatted_duration = format_duration(total_seconds)
+    #print(formatted_duration)
+
+minutes_column_1 = df1['大眾運輸']
+for value in minutes_column_1:
+    total_seconds_1 = value * 60
+
+    def format_duration_1(total_seconds_1):
+        hours = total_seconds_1 // 3600
+        minutes = (total_seconds_1 % 3600) // 60
+        seconds = total_seconds_1 % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    formatted_duration_1 = format_duration(total_seconds_1)
+    #print(formatted_duration_1)
+
+label_1 = tk.Label(window, text='選擇交通', bg='yellow', fg='#bd34eb', font=('Arial', 19))
+label_1.place(anchor='center', x=150, y=170)
+
+# 設置單選按鈕
+var4 = tk.StringVar()
+radioValue = var4
+rdioOne = tk.Radiobutton(window, text='騎車', variable=radioValue, value=0)
+rdioTwo = tk.Radiobutton(window, text='大眾運輸', variable=radioValue, value=1)
+rdioOne.place(anchor='center', x=336, y=155)
+rdioTwo.place(anchor='center', x=350, y=180)
+label_2 = tk.Label(window, text='交通方式', bg='yellow', fg='#bd34eb', font=('Arial', 14))
+label_2.place(anchor='center', x=350, y=130)
+
+# 設置交通時間滑桿
+var5 = tk.IntVar()
+
+def on_slider_move(var5):
+    label_scale.config(text="交通時間：" + str(var5) + "分鐘以內")
+#    var5 = slider_1.get()
+
+
+slider_1 = tk.Scale(window, from_=0, to=100, orient="horizontal", length=200, width=20, sliderlength=30,
+                    sliderrelief="flat", showvalue=True, command=on_slider_move)
+slider_1.place(anchor='center', x=550, y=170)
+label_scale = tk.Label(window, text="交通時間:0 分鐘以內")
+label_scale.place(anchor='center', x=550, y=210)
+label_3 = tk.Label(window, text='交通時間', bg='yellow', fg='#bd34eb', font=('Arial', 14))
+label_3.place(anchor='center', x=550, y=130)
+
+
+def traffic_analysis(var4, time_series):
+    tmp_1 = []
+    if var4 == 0:
+        minutes_column = time_series['騎車']
+        for value in minutes_column:
+            diff = timedelta(minutes=value)  # 將數字轉換為 timedelta 物件
+            if diff <= timedelta(minutes=var5.get()):
+                tmp_1.append(True)
+            else:
+                tmp_1.append(False)
+    else:
+        minutes_column_1 = time_series['大眾運輸']
+        for value in minutes_column_1:
+            diff = timedelta(minutes=value)  # 將數字轉換為 timedelta 物件
+            if diff <= timedelta(minutes=var5.get()):
+                tmp_1.append(True)
+            else:
+                tmp_1.append(False)
+    return pd.Series(tmp_1)
+
+
+# 設置星等滑桿
+var6 = tk.DoubleVar()
+
+
+def on_scale_changed(var6):
+    var6 = round(float(var6), 1)
+    rating_label.config(text=f"星等: {var6} 顆")
+#    var6 = slider_2.get()
+
+
+# 建立搖桿
+label_2 = tk.Label(window, text='選擇星等', bg='yellow', fg='#bd34eb', font=('Arial', 19))
+label_2.place(anchor='center', x=800, y=170)
+slider_2 = tk.Scale(window, from_=3.7, to=5.0, resolution=0.1, orient="horizontal", length=200, width=20,
+                    sliderlength=30, sliderrelief="flat", showvalue=True, command=on_scale_changed)
+slider_2.place(anchor='center', x=1000, y=170)
+
+# 建立顯示星等的標籤
+rating_label = ttk.Label(window, text="星等: 3.7 顆以上")
+rating_label.place(anchor='center', x=1000, y=210)
+label_2 = tk.Label(window, text='選擇星等', bg='yellow', fg='#bd34eb', font=('Arial', 14))
+label_2.place(anchor='center', x=1000, y=130)
+
+
+def search_clinics():
+    tree.delete(*tree.get_children())
+    selected_category = var1.get()
+    selected_day = var2.get()
+    selected_time = var3.get()
+    if var1.get() == '':
+        clinic = df1["類別"].all()
+    else:
+        clinic = df1["類別"] == selected_category
+    if var2.get() == '':
+        week = df1["類別"].all()
+    else:
+        week = df1[selected_day].notnull()
+    if var2.get() == '' or var3.get() == '':
+        time_1 = df1["類別"].all()
+    else:
+        time_1 = time_analysis(df1[selected_day], selected_time)
+    df2 = df1[np.logical_and.reduce([clinic, week, time_1])]
+    vehicle = var4.get()
+    traffictime = slider_1.get()
+    ranking = slider_2.get()
+    if vehicle == "0":
+        df2 = df2[df2["騎車"] < traffictime]
+        result = df2[df2["評價（星等）"] > ranking]
+    elif vehicle == "1":
+        df2 = df2[df2["大眾運輸"] < traffictime]
+        result = df2[df2["評價（星等）"] > ranking]
+    else:
+        result = pd.Series([True] * len(df1))
+    if result.empty:
+        tree.insert("", "end", values=("", "沒有符合條件的診所", ""))
+    else:
+        for i, row in result.iterrows():
+            tree.insert("", "end", values=row[["名稱", "類別", "地址", "電話", "交通時間-騎車", "交通時間-大眾運輸", "費用"]].tolist())
+
+button = tk.Button(text="搜尋", font=("Arial", 14, "bold"), padx=5, pady=5, bg="blue", fg="light green",
+                   command=search_clinics)
+button.place(x=1100, y=40)
+
+columns = ("名稱", "類別", "地址", "電話", "交通時間-騎車", "交通時間-大眾運輸", "費用")
+
+tree = ttk.Treeview(window, show="headings", columns=columns)
+
+tree.column("名稱", width=150, anchor='center')
+tree.column("類別", width=125, anchor='center')
+tree.column("地址", width=250, anchor='center')
+tree.column("電話", width=150, anchor='center')
+tree.column("交通時間-騎車", width=150, anchor='center')
+tree.column("交通時間-大眾運輸", width=150, anchor='center')
+tree.column("費用", width=150, anchor='center')
+
+tree.heading("名稱", text="名稱")
+tree.heading("類別", text="類別")
+tree.heading("地址", text="地址")
+tree.heading("電話", text="電話")
+tree.heading("交通時間-騎車", text="交通時間-騎車")
+tree.heading("交通時間-大眾運輸", text="交通時間-大眾運輸")
+tree.heading("費用", text="費用")
+
+tree.place(x=100, y=300)
+
+
+import random
+# 改變視窗的背景顏色
+def change_color():
+    color = "#" + "".join(random.choices("0123456789ABCDEF", k=6))
+    window.config(bg=color)
+# 創建一個按鈕
+button = tk.Button(window, text="更改主題", command=change_color,font=("SimSun"))
+button.place(x=1200, y=50)
+
+
+
+window.mainloop()
